@@ -45,6 +45,7 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -385,6 +386,21 @@ public final class PartitionReader implements AutoCloseable {
      */
     public List<Long> partitions() {
         return partitionIds;
+    }
+
+    /**
+     * The position of each partition that the reader reads, keyed by partition id in ascending order. Under
+     * {@code OnRead} the server stores the offset of each read, so the stored offset is the last one that a read
+     * returned, also one not delivered yet.
+     */
+    public CompletableFuture<Map<Long, PartitionPosition>> positions() {
+        return call(() -> {
+            Map<Long, PartitionPosition> positions = new LinkedHashMap<>();
+            for (Partition partition : partitions.values()) {
+                positions.put(partition.id, partition.position(onRead));
+            }
+            return Collections.unmodifiableMap(positions);
+        });
     }
 
     /**

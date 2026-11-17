@@ -139,6 +139,11 @@ public final class IggyConsumer {
         return reader.partitions();
     }
 
+    /** See {@link PartitionReader#positions()}. */
+    public CompletableFuture<Map<Long, PartitionPosition>> positions() {
+        return reader.positions();
+    }
+
     /**
      * Stops a running {@link #consume} after its current handler, counts the last message under
      * {@link CommitAfter#PROCESSING}, and closes the reader, which stores, moves offsets back and leaves its group as

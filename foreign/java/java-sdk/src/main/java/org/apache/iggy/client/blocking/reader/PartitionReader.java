@@ -19,6 +19,7 @@
 
 package org.apache.iggy.client.blocking.reader;
 
+import org.apache.iggy.client.async.reader.PartitionPosition;
 import org.apache.iggy.client.async.reader.PartitionReaderBuilder;
 import org.apache.iggy.client.async.reader.ReadException;
 import org.apache.iggy.exception.IggyClientException;
@@ -29,6 +30,7 @@ import org.apache.iggy.message.PollingStrategy;
 import java.io.Closeable;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -99,6 +101,11 @@ public final class PartitionReader implements Closeable {
 
     public List<Long> partitions() {
         return reader.partitions();
+    }
+
+    /** See {@link org.apache.iggy.client.async.reader.PartitionReader#positions()}. */
+    public Map<Long, PartitionPosition> positions() {
+        return resolve(reader.positions());
     }
 
     /** See {@link org.apache.iggy.client.async.reader.PartitionReader#closeAsync()}. */
