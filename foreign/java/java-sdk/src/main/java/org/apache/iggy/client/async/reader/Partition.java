@@ -26,11 +26,8 @@ import org.apache.iggy.partition.PartitionContext;
 
 import java.math.BigInteger;
 import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.Deque;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
 
 /**
  * The state of one partition of a {@link PartitionReader}. Only that reader reads and writes it, on its loop, so the
@@ -87,9 +84,22 @@ final class Partition {
     Checkpoint counted;
     Checkpoint stored;
     long sinceStore;
+    // Unlike delivered and stored, the three offsets below survive a seek: they answer the accessors of the reader.
+    // The last offset that the application took, in any generation.
+    BigInteger lastConsumed;
+    // The last offset that a store of this reader wrote, from a commit or an automatic store.
+    BigInteger lastStored;
+    // The end of the last batch that the reader handed over. Under OnRead the server stored it with the read.
+    BigInteger takenThrough;
 
     Partition(long id) {
         this.id = id;
+    }
+
+    /** Records a successful store of {@code checkpoint}, and whether it also counts as the automatic store. */
+    boolean stored(Checkpoint checkpoint) {
+        lastStored = checkpoint.offset();
+        return delivered(checkpoint);
     }
 
     /** Whether this reader delivered {@code checkpoint} in the current generation of the partition. */
@@ -99,20 +109,5 @@ final class Partition {
                 && owners.named(checkpoint.context())
                 && checkpoint.offset().compareTo(firstDelivered) >= 0
                 && checkpoint.offset().compareTo(delivered.offset()) <= 0;
-    }
-
-    /** The position of the current generation. Under {@code OnRead} the server stored each read. */
-    PartitionPosition position(boolean onRead) {
-        Optional<BigInteger> consumed = Optional.ofNullable(delivered).map(Checkpoint::offset);
-        if (onRead) {
-            return new PartitionPosition(consumed, Optional.ofNullable(received));
-        }
-        // A seek keeps the last automatic store, so only one of the current generation counts.
-        Optional<BigInteger> automatic =
-                Optional.ofNullable(stored).filter(this::delivered).map(Checkpoint::offset);
-        Optional<BigInteger> lastStored = Stream.of(Optional.ofNullable(committed), automatic)
-                .flatMap(Optional::stream)
-                .max(Comparator.naturalOrder());
-        return new PartitionPosition(consumed, lastStored);
     }
 }

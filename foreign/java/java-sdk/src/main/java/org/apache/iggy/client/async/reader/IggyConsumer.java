@@ -26,6 +26,7 @@ import org.apache.iggy.message.CommitAfter;
 import org.apache.iggy.message.PolledMessages;
 import org.apache.iggy.message.PollingStrategy;
 
+import java.math.BigInteger;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
@@ -139,9 +141,14 @@ public final class IggyConsumer {
         return reader.partitions();
     }
 
-    /** See {@link PartitionReader#positions()}. */
-    public CompletableFuture<Map<Long, PartitionPosition>> positions() {
-        return reader.positions();
+    /** See {@link PartitionReader#getLastConsumedOffset(long)}. */
+    public CompletableFuture<Optional<BigInteger>> getLastConsumedOffset(long partitionId) {
+        return reader.getLastConsumedOffset(partitionId);
+    }
+
+    /** See {@link PartitionReader#getLastStoredOffset(long)}. */
+    public CompletableFuture<Optional<BigInteger>> getLastStoredOffset(long partitionId) {
+        return reader.getLastStoredOffset(partitionId);
     }
 
     /**

@@ -19,7 +19,6 @@
 
 package org.apache.iggy.client.blocking.reader;
 
-import org.apache.iggy.client.async.reader.PartitionPosition;
 import org.apache.iggy.client.async.reader.PartitionReaderBuilder;
 import org.apache.iggy.client.async.reader.ReadException;
 import org.apache.iggy.exception.IggyClientException;
@@ -28,9 +27,9 @@ import org.apache.iggy.message.PolledMessages;
 import org.apache.iggy.message.PollingStrategy;
 
 import java.io.Closeable;
+import java.math.BigInteger;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -103,9 +102,14 @@ public final class PartitionReader implements Closeable {
         return reader.partitions();
     }
 
-    /** See {@link org.apache.iggy.client.async.reader.PartitionReader#positions()}. */
-    public Map<Long, PartitionPosition> positions() {
-        return resolve(reader.positions());
+    /** See {@link org.apache.iggy.client.async.reader.PartitionReader#getLastConsumedOffset(long)}. */
+    public Optional<BigInteger> getLastConsumedOffset(long partitionId) {
+        return resolve(reader.getLastConsumedOffset(partitionId));
+    }
+
+    /** See {@link org.apache.iggy.client.async.reader.PartitionReader#getLastStoredOffset(long)}. */
+    public Optional<BigInteger> getLastStoredOffset(long partitionId) {
+        return resolve(reader.getLastStoredOffset(partitionId));
     }
 
     /** See {@link org.apache.iggy.client.async.reader.PartitionReader#closeAsync()}. */

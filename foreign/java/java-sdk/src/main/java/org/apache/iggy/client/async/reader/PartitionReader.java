@@ -45,7 +45,6 @@ import java.math.BigInteger;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -260,6 +259,7 @@ public final class PartitionReader implements AutoCloseable {
                     partition.firstDelivered = checkpoint.offset();
                 }
                 partition.delivered = checkpoint;
+                partition.lastConsumed = checkpoint.offset();
             }
             return null;
         });
@@ -388,19 +388,18 @@ public final class PartitionReader implements AutoCloseable {
         return partitionIds;
     }
 
+    /** The offset of the last message taken from {@code partitionId}. A seek keeps it, and it can pass the stored one. */
+    public CompletableFuture<Optional<BigInteger>> getLastConsumedOffset(long partitionId) {
+        return call(() -> Optional.ofNullable(partitions.get(partitionId)).map(partition -> partition.lastConsumed));
+    }
+
     /**
-     * The position of each partition that the reader reads, keyed by partition id in ascending order. Under
-     * {@code OnRead} the server stores the offset of each read, so the stored offset is the last one that a read
-     * returned, also one not delivered yet.
+     * The offset this reader last stored for {@code partitionId}: its own record, not read from the server. Under
+     * {@code OnRead} it is the end of the last batch handed over.
      */
-    public CompletableFuture<Map<Long, PartitionPosition>> positions() {
-        return call(() -> {
-            Map<Long, PartitionPosition> positions = new LinkedHashMap<>();
-            for (Partition partition : partitions.values()) {
-                positions.put(partition.id, partition.position(onRead));
-            }
-            return Collections.unmodifiableMap(positions);
-        });
+    public CompletableFuture<Optional<BigInteger>> getLastStoredOffset(long partitionId) {
+        return call(() -> Optional.ofNullable(partitions.get(partitionId))
+                .map(partition -> onRead ? partition.takenThrough : partition.lastStored));
     }
 
     /**
@@ -1707,8 +1706,11 @@ public final class PartitionReader implements AutoCloseable {
                 continue;
             }
             Partition partition = partitions.get(entry.partition);
-            if (waiting.delivers && partition != null && entry.generation == partition.generation) {
-                delivered(partition, entry.batch);
+            if (partition != null && entry.generation == partition.generation) {
+                partition.takenThrough = entry.batch.checkpoint().orElseThrow().offset();
+                if (waiting.delivers) {
+                    delivered(partition, entry.batch);
+                }
             }
         }
         if (onRead && !waiters.isEmpty() && queue.isEmpty()) {
@@ -1739,6 +1741,7 @@ public final class PartitionReader implements AutoCloseable {
             partition.firstDelivered = batch.messages().get(0).header().offset();
         }
         partition.delivered = last;
+        partition.lastConsumed = last.offset();
         CommitAfter after = autoCommit.map(AutoCommit::after).orElse(CommitAfter.MARKED);
         if (after == CommitAfter.DELIVERY) {
             count(partition, last, batch.messages().size(), true);
@@ -1830,7 +1833,7 @@ public final class PartitionReader implements AutoCloseable {
                                     return null;
                                 }
                                 Partition partition = partitions.get(store.partition.id);
-                                if (partition != null && partition.delivered(checkpoint)) {
+                                if (partition != null && partition.stored(checkpoint)) {
                                     partition.stored = checkpoint;
                                     partition.sinceStore = Math.max(0, partition.sinceStore - sinceStore);
                                 }
@@ -1886,6 +1889,9 @@ public final class PartitionReader implements AutoCloseable {
 
     private void recordCommit(Checkpoint checkpoint, long generation) {
         Partition partition = partitions.get(checkpoint.partitionId());
+        if (partition != null) {
+            partition.lastStored = checkpoint.offset();
+        }
         if (partition != null
                 && partition.generation == generation
                 && (partition.committed == null || checkpoint.offset().compareTo(partition.committed) > 0)) {
