@@ -15,36 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::consumer_offset::ConsumerOffset;
+namespace Apache.Iggy.Enums;
 
-#[derive(Debug, Clone)]
-pub struct ConsumerOffsets(papaya::HashMap<usize, ConsumerOffset>);
-
-impl ConsumerOffsets {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(papaya::HashMap::with_capacity(capacity))
-    }
-}
-
-impl<I> From<I> for ConsumerOffsets
-where
-    I: IntoIterator<Item = (usize, ConsumerOffset)>,
+/// <summary>How a geo topic writes its messages. Only a geo topic has a mode.</summary>
+public enum GeoMode
 {
-    fn from(iter: I) -> Self {
-        Self(papaya::HashMap::from_iter(iter))
-    }
-}
+    /// <summary>Upload first: a batch reaches the object store before it commits.</summary>
+    Geo,
 
-impl std::ops::Deref for ConsumerOffsets {
-    type Target = papaya::HashMap<usize, ConsumerOffset>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl std::ops::DerefMut for ConsumerOffsets {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+    /// <summary>Replicate first: a batch commits through replication, and sealed segments upload later.</summary>
+    GeoTiered
 }

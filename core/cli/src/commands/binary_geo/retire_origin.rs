@@ -15,37 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::consumer_group_id::ConsumerGroupId;
-use super::consumer_offset::ConsumerOffset;
+use crate::commands::cli_command::{CliCommand, PRINT_TARGET};
+use anyhow::Context;
+use async_trait::async_trait;
+use iggy_common::Client;
+use tracing::{Level, event};
 
-#[derive(Debug, Clone)]
-pub struct ConsumerGroupOffsets(papaya::HashMap<ConsumerGroupId, ConsumerOffset>);
+pub struct RetireGeoOriginCmd {
+    origin: String,
+}
 
-impl ConsumerGroupOffsets {
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self(papaya::HashMap::with_capacity(capacity))
+impl RetireGeoOriginCmd {
+    pub fn new(origin: String) -> Self {
+        Self { origin }
     }
 }
 
-impl<I> From<I> for ConsumerGroupOffsets
-where
-    I: IntoIterator<Item = (ConsumerGroupId, ConsumerOffset)>,
-{
-    fn from(iter: I) -> Self {
-        Self(papaya::HashMap::from_iter(iter))
+#[async_trait]
+impl CliCommand for RetireGeoOriginCmd {
+    fn explain(&self) -> String {
+        format!("retire geo origin: {}", self.origin)
     }
-}
 
-impl std::ops::Deref for ConsumerGroupOffsets {
-    type Target = papaya::HashMap<ConsumerGroupId, ConsumerOffset>;
+    async fn execute_cmd(&mut self, client: &dyn Client) -> anyhow::Result<(), anyhow::Error> {
+        client
+            .retire_geo_origin(&self.origin)
+            .await
+            .with_context(|| format!("Problem retiring geo origin: {}", self.origin))?;
 
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+        event!(target: PRINT_TARGET, Level::INFO, "Geo origin: {} retired", self.origin);
 
-impl std::ops::DerefMut for ConsumerGroupOffsets {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        Ok(())
     }
 }
